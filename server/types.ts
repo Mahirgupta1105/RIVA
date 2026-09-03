@@ -35,12 +35,28 @@ export enum RecoveryActionResult {
   PENDING_REVIEW = 'PENDING_REVIEW',
 }
 
+export enum Severity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+export enum TransactionStatus {
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  PENDING = 'PENDING',
+  RECOVERED = 'RECOVERED',
+}
+
 export interface Customer {
   id: string;
   name: string;
   email: string;
   ltvTier: LtvTier;
+  lifetimeValue: number;
   incidents?: Incident[];
+  transactions?: Transaction[];
 }
 
 export interface Incident {
@@ -51,6 +67,15 @@ export interface Incident {
   bank?: string;
   originalMethod?: PaymentMethod;
   classificationSource?: string;
+  amount: number;
+  orderId?: string;
+  transactionId?: string;
+  gateway?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  severity: Severity;
+  recoverability: number;
+  retryCount: number;
   createdAt: Date;
   updatedAt: Date;
   actions?: RecoveryAction[];
@@ -63,7 +88,20 @@ export interface RecoveryAction {
   result: RecoveryActionResult;
   details?: string | null;
   attemptNumber: number;
+  duration?: number | null;
   timestamp: Date;
+}
+
+export interface Transaction {
+  id: string;
+  customerId: string;
+  amount: number;
+  method: PaymentMethod;
+  bank?: string;
+  gateway?: string;
+  status: TransactionStatus;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface AuditLog {
@@ -71,6 +109,7 @@ export interface AuditLog {
   previousHash?: string;
   hash: string;
   action: string;
+  actor: string;
   payload: any;
   timestamp: Date;
 }

@@ -3,9 +3,10 @@ import { PrismaClient,
   IncidentStatus,
   RecoveryRail,
   RecoveryActionResult,
-  PaymentMethod
+  PaymentMethod,
+  TransactionStatus
 } from '@prisma/client';
-import { IIncidentRepository, Customer, Incident, RecoveryAction, AuditLog } from './IIncidentRepository.js';
+import { IIncidentRepository, Customer, Incident, RecoveryAction, AuditLog, Transaction } from './IIncidentRepository.js';
 
 export class PrismaRepository implements IIncidentRepository {
   private prisma = new PrismaClient();
@@ -14,7 +15,11 @@ export class PrismaRepository implements IIncidentRepository {
     return (await this.prisma.customer.findUnique({ where: { id } })) as unknown as Customer | null;
   }
 
-  async createCustomer(data: { name: string; email: string; ltvTier: LtvTier }): Promise<Customer> {
+  async listCustomers(): Promise<Customer[]> {
+    return (await this.prisma.customer.findMany()) as unknown as Customer[];
+  }
+
+  async createCustomer(data: { name: string; email: string; ltvTier: LtvTier; lifetimeValue: number }): Promise<Customer> {
     return (await this.prisma.customer.create({ data })) as unknown as Customer;
   }
 
@@ -22,7 +27,17 @@ export class PrismaRepository implements IIncidentRepository {
     return (await this.prisma.incident.findUnique({ where: { id } })) as unknown as Incident | null;
   }
 
-  async createIncident(data: { customerId: string }): Promise<Incident> {
+  async createIncident(data: {
+    customerId: string;
+    amount: number;
+    orderId?: string;
+    transactionId?: string;
+    gateway?: string;
+    errorCode?: string;
+    errorMessage?: string;
+    severity?: any;
+    recoverability?: number
+  }): Promise<Incident> {
     return (await this.prisma.incident.create({ data })) as unknown as Incident;
   }
 
@@ -72,7 +87,8 @@ export class PrismaRepository implements IIncidentRepository {
     rail: RecoveryRail;
     result: RecoveryActionResult;
     details?: string;
-    attemptNumber: number
+    attemptNumber: number;
+    duration?: number;
   }): Promise<RecoveryAction> {
     return (await this.prisma.recoveryAction.create({ data })) as unknown as RecoveryAction;
   }
@@ -92,6 +108,21 @@ export class PrismaRepository implements IIncidentRepository {
     })) as unknown as RecoveryAction | null;
   }
 
+  async createTransaction(data: { customerId: string; amount: number; method: PaymentMethod; bank?: string; gateway?: string; status: TransactionStatus }): Promise<Transaction> {
+    return (await this.prisma.transaction.create({ data })) as unknown as Transaction;
+  }
+
+  async listTransactions(filters: { status?: TransactionStatus; customerId?: string }): Promise<Transaction[]> {
+    const where: any = {};
+    if (filters.status) where.status = filters.status;
+    if (filters.customerId) where.customerId = filters.customerId;
+    return (await this.prisma.transaction.findMany({ where, orderBy: { createdAt: 'desc' } })) as unknown as Transaction[];
+  }
+
+  async getTransactionById(id: string): Promise<Transaction | null> {
+    return (await this.prisma.transaction.findUnique({ where: { id } })) as unknown as Transaction | null;
+  }
+
   async getRecentFailureCountForCustomer(customerId: string, windowStart: Date): Promise<number> {
     return this.prisma.incident.count({
       where: {
@@ -106,6 +137,7 @@ export class PrismaRepository implements IIncidentRepository {
     previousHash: string | null;
     hash: string;
     action: string;
+    actor: string;
     payload: any
   }): Promise<AuditLog> {
     return (await this.prisma.auditLog.create({ data })) as unknown as AuditLog;

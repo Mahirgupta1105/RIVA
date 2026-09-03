@@ -7,6 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+  OPERATOR
+  ANALYST
+  VIEWER
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  role          UserRole @default(VIEWER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 enum LtvTier {
   STARTER
   PRO
@@ -44,26 +60,51 @@ enum RecoveryActionResult {
   PENDING_REVIEW
 }
 
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TransactionStatus {
+  SUCCESS
+  FAILED
+  PENDING
+  RECOVERED
+}
+
 model Customer {
-  id        String     @id @default(uuid())
-  name      String
-  email     String     @unique
-  ltvTier   LtvTier   @default(STARTER)
-  incidents Incident[]
+  id            String     @id @default(uuid())
+  name          String
+  email         String     @unique
+  ltvTier       LtvTier   @default(STARTER)
+  lifetimeValue Float      @default(0.0)
+  incidents     Incident[]
+  transactions  Transaction[]
 }
 
 model Incident {
-  id                  String           @id @default(uuid())
-  customerId          String
-  customer            Customer         @relation(fields: [customerId], references: [id])
-  status              IncidentStatus   @default(DETECTED)
-  cause               String?          // Failure category
-  bank                String?          // Bank identifier (e.g. "HDFC")
-  originalMethod      PaymentMethod?   // The original payment method that failed
+  id                   String           @id @default(uuid())
+  customerId           String
+  customer             Customer         @relation(fields: [customerId], references: [id])
+  status               IncidentStatus   @default(DETECTED)
+  cause                String?          // Failure category
+  bank                 String?          // Bank identifier (e.g. "HDFC")
+  originalMethod       PaymentMethod?   // The original payment method that failed
   classificationSource String?          // "AI" or "HEURISTIC"
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  actions             RecoveryAction[]
+  amount               Float            @default(0.0)
+  orderId              String?
+  transactionId        String?
+  gateway              String?
+  errorCode            String?
+  errorMessage         String?
+  severity             Severity         @default(MEDIUM)
+  recoverability       Float            @default(0.0) // 0.0 to 1.0
+  retryCount           Int              @default(0)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  actions              RecoveryAction[]
 }
 
 model RecoveryAction {
@@ -74,9 +115,23 @@ model RecoveryAction {
   result         RecoveryActionResult
   details        String?              // Captures raw gateway errors or success messages
   attemptNumber  Int
+  duration       Int?                  // Execution time in ms
   timestamp      DateTime             @default(now())
 
   @@unique([incidentId, attemptNumber])
+}
+
+model Transaction {
+  id            String            @id @default(uuid())
+  customerId    String
+  customer      Customer          @relation(fields: [customerId], references: [id])
+  amount        Float
+  method        PaymentMethod
+  bank          String?
+  gateway       String?
+  status        TransactionStatus
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 }
 
 model AuditLog {
@@ -84,6 +139,7 @@ model AuditLog {
   previousHash String?
   hash         String   @unique
   action       String
+  actor        String   @default("SYSTEM") // "AI" or "HUMAN_OPERATOR"
   payload      Json
   timestamp    DateTime @default(now())
 

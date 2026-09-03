@@ -57,7 +57,7 @@ Every decision and action is recorded in a cryptographically linked audit chain.
 
 ### Audit
 - `GET /api/audit`: Retrieve the full immutable hash chain.
-
+  ru
 ## 📈 Implementation Status
 
 | Feature | Status | Notes |
