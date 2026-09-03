@@ -40,7 +40,7 @@ export interface Customer {
   name: string;
   email: string;
   ltvTier: LtvTier;
-  incidents: Incident[];
+  incidents?: Incident[];
 }
 
 export interface Incident {
@@ -53,7 +53,7 @@ export interface Incident {
   classificationSource?: string;
   createdAt: Date;
   updatedAt: Date;
-  actions: RecoveryAction[];
+  actions?: RecoveryAction[];
 }
 
 export interface RecoveryAction {

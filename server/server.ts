@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
@@ -8,6 +8,10 @@ import { ForensicEngine } from './services/ForensicEngine.js';
 import { IncidentService } from './services/IncidentService.js';
 import { RecoveryEngine } from './services/RecoveryEngine.js';
 import { PrismaRepository } from './repositories/PrismaRepository.js'; // Now implemented
+
+interface RequestWithRepository extends Request {
+  repository: IIncidentRepository;
+}
 
 dotenv.config();
 
@@ -32,16 +36,25 @@ const recoveryEngine = new RecoveryEngine(repository);
 const incidentService = new IncidentService(repository, forensicEngine, recoveryEngine);
 
 // Dependency Injection: Attach repository to request
-app.use((req, res, next) => {
+app.use((req: any, res, next) => {
   req.repository = repository;
   next();
 });
 
 async function startServer() {
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: 'spa',
-  });
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (!isProduction) {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    // In production, serve static assets from the 'dist' directory
+    const distPath = path.resolve('dist');
+    app.use(express.static(distPath));
+  }
 
   // --- API Endpoints ---
 
@@ -148,12 +161,21 @@ async function startServer() {
     }
   });
 
-  app.use(vite.middlewares);
+  if (!isProduction) {
+    // Vite middleware is already added at the top of startServer for dev mode
+    // but we must ensure it doesn't try to access a non-existent 'vite' variable here
+  }
 
   // SPA Fallback
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve('index.html'));
-  });
+  if (process.env.NODE_ENV === 'production') {
+    app.get('*', (req, res) => {
+      res.sendFile(path.resolve('dist', 'index.html'));
+    });
+  } else {
+    app.get('*', (req, res) => {
+      res.sendFile(path.resolve('index.html'));
+    });
+  }
 
   const PORT = process.env.PORT || 8000;
   app.listen(PORT, () => {

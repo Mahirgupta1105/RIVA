@@ -35,7 +35,7 @@ export class RecoveryEngine {
    * Determines the next recovery action for an incident.
    */
   async determineNextAction(incident: Incident, customer: Customer): Promise<RecoveryDecision | null> {
-    const actions = incident.actions;
+    const actions = incident.actions || [];
     const attemptNumber = actions.length + 1;
 
     if (attemptNumber > this.MAX_RETRIES) {

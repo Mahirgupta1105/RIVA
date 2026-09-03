@@ -44,10 +44,10 @@ export class InMemoryRepository implements IIncidentRepository {
       id: uuidv4(),
       ...data,
       status: IncidentStatus.DETECTED,
-      cause: null,
-      bank: null,
-      originalMethod: null,
-      classificationSource: null,
+      cause: undefined,
+      bank: undefined,
+      originalMethod: undefined,
+      classificationSource: undefined,
       createdAt: new Date(),
       updatedAt: new Date(),
       actions: [],
@@ -86,7 +86,7 @@ export class InMemoryRepository implements IIncidentRepository {
 
       // Recovery rail filter is a bit different as it's based on associated actions
       if (filters.recoveryRail) {
-        const hasRail = i.actions.some(a => a.rail === filters.recoveryRail);
+        const hasRail = i.actions?.some(a => a.rail === filters.recoveryRail);
         if (!hasRail) return false;
       }
 
@@ -140,6 +140,7 @@ export class InMemoryRepository implements IIncidentRepository {
     const entry: AuditLog = {
       id: uuidv4(),
       ...data,
+      previousHash: data.previousHash ?? undefined,
       timestamp: new Date(),
     };
     this.auditLog.push(entry);

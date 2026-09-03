@@ -80,11 +80,11 @@ export class IncidentService {
         // No further actions possible (Max retries or Systemic Pause)
         await this.repository.updateIncident(incidentId, { status: IncidentStatus.ESCALATED });
         await this.logAction('ESCALATE', { incidentId, reason: 'MAX_RETRIES_OR_PAUSE' });
-        return { success: false, decision: null };
+        return { success: false, decision: undefined };
       }
 
       // 2. Idempotency Check: Ensure we aren't duplicating this attempt
-      const attemptNumber = incident.actions.length + 1;
+      const attemptNumber = (incident.actions?.length || 0) + 1;
       const existing = await this.repository.getActionByIncidentAndAttempt(incidentId, attemptNumber);
       if (existing) {
         throw new Error(`Idempotency violation: Attempt ${attemptNumber} already exists`);
