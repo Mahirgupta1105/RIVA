@@ -60,11 +60,16 @@ async function startServer() {
 
   // Create a test customer
   app.post('/api/customers', async (req, res) => {
-    const { name, email, ltvTier } = req.body;
+  const { name, email, ltvTier, lifetimeValue } = req.body;
     if (!name || !email || !ltvTier) return res.status(400).json({ error: 'name, email, and ltvTier are required' });
 
     try {
-      const customer = await repository.createCustomer({ name, email, ltvTier });
+      const customer = await repository.createCustomer({
+  name,
+  email,
+  ltvTier,
+  lifetimeValue: lifetimeValue || 0
+});
       res.status(201).json(customer);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -77,12 +82,12 @@ async function startServer() {
     if (!customerId) return res.status(400).json({ error: 'customerId is required' });
 
     try {
-      const incident = await repository.createIncident({ customerId });
-      res.status(201).json(incident);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
+  const incidents = await repository.listIncidents({});
+  res.json(incidents);
+} catch (e: any) {
+  res.status(500).json({ error: e.message });
+}
+});
 
   // Get incident details
   app.get('/api/incidents/:id', async (req, res) => {

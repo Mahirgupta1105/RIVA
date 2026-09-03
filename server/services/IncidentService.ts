@@ -19,11 +19,12 @@ export class IncidentService {
     const hash = crypto.createHash('sha256').update(dataToHash).digest('hex');
 
     await this.repository.createAuditEntry({
-      previousHash: prevHash,
-      hash,
-      action,
-      payload,
-    });
+  previousHash: prevHash,
+  hash,
+  action,
+  actor: 'RIVA_SYSTEM',
+  payload,
+  });
   }
 
   /**

@@ -1,6 +1,10 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import { IIncidentRepository } from './repositories/IIncidentRepository.js';
+import {
+  IIncidentRepository,
+  PaymentMethod,
+  TransactionStatus
+} from './repositories/IIncidentRepository.js';
 import { InMemoryRepository } from './repositories/InMemoryRepository.js';
 import { ForensicEngine } from './services/ForensicEngine.js';
 import { IncidentService } from './services/IncidentService.js';
@@ -59,14 +63,15 @@ export function createApp() {
   });
 
   // Incidents
-  app.get('/api/incidents', async (req, res) => {
-    try {
-      const incidents = await repository.listIncidents({});
-      res.json(incidents);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
+ // Incidents
+app.get('/api/incidents', async (req, res) => {
+  try {
+    const incidents = await repository.listIncidents({});
+    res.json(incidents);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
   app.get('/api/incidents/:id', async (req, res) => {
     const { id } = req.params;
@@ -171,8 +176,19 @@ export function createApp() {
   });
 
   // Simulation & Manual Tools
-  app.post('/api/quick-leak', async (req, res) => {
-    const { customerId, amount, orderId, transactionId, gateway, errorCode, errorMessage, severity, recoverability } = req.body;
+   app.post('/api/quick-leak', async (req, res) => {
+    const {
+      customerId,
+      amount,
+      orderId,
+      transactionId,
+      gateway,
+      errorCode,
+      errorMessage,
+      severity,
+      recoverability
+    } = req.body;
+
     try {
       const incident = await repository.createIncident({
         customerId,
@@ -190,10 +206,10 @@ export function createApp() {
       await repository.createTransaction({
         customerId,
         amount,
-        method: 'UPI',
+        method: PaymentMethod.UPI,
         bank: 'HDFC',
         gateway,
-        status: 'FAILED'
+        status: TransactionStatus.FAILED
       });
 
       res.status(201).json({ message: 'Manual leak created', incident });
@@ -201,6 +217,7 @@ export function createApp() {
       res.status(500).json({ error: e.message });
     }
   });
+
 
   app.post('/api/simulation/run', async (req, res) => {
     const { scenario } = req.body;
