@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LtvTier {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum IncidentStatus {
+  DETECTED
+  CLASSIFIED
+  RECOVERY_IN_PROGRESS
+  RECOVERED
+  ESCALATED
+  CLOSED
+}
+
+enum RecoveryRail {
+  SAME_RAIL
+  UPI_INTENT
+  WHATSAPP_LINK
+  ALTERNATE_RAIL
+}
+
+enum PaymentMethod {
+  UPI
+  CARD
+  NETBANKING
+  WALLET
+}
+
+enum RecoveryActionResult {
+  SUCCESS
+  FAILED
+  PENDING
+  SKIPPED
+  PENDING_REVIEW
+}
+
+model Customer {
+  id        String     @id @default(uuid())
+  name      String
+  email     String     @unique
+  ltvTier   LtvTier   @default(STARTER)
+  incidents Incident[]
+}
+
+model Incident {
+  id                  String           @id @default(uuid())
+  customerId          String
+  customer            Customer         @relation(fields: [customerId], references: [id])
+  status              IncidentStatus   @default(DETECTED)
+  cause               String?          // Failure category
+  bank                String?          // Bank identifier (e.g. "HDFC")
+  originalMethod      PaymentMethod?   // The original payment method that failed
+  classificationSource String?          // "AI" or "HEURISTIC"
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  actions             RecoveryAction[]
+}
+
+model RecoveryAction {
+  id             String               @id @default(uuid())
+  incidentId     String
+  incident       Incident             @relation(fields: [incidentId], references: [id])
+  rail           RecoveryRail
+  result         RecoveryActionResult
+  details        String?              // Captures raw gateway errors or success messages
+  attemptNumber  Int
+  timestamp      DateTime             @default(now())
+
+  @@unique([incidentId, attemptNumber])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  previousHash String?
+  hash         String   @unique
+  action       String
+  payload      Json
+  timestamp    DateTime @default(now())
+
+  @@index([previousHash])
+}
