@@ -10,6 +10,8 @@ import { PrismaRepository } from './repositories/PrismaRepository.js';
 import { ForensicEngine } from './services/ForensicEngine.js';
 import { IncidentService } from './services/IncidentService.js';
 import { RecoveryEngine } from './services/RecoveryEngine.js';
+import { IncidentController } from './controllers/IncidentController.js';
+import { createIncidentRoutes } from './routes/incidentRoutes.js';
 
 dotenv.config();
 
@@ -52,7 +54,10 @@ const incidentService = new IncidentService(
   forensicEngine,
   recoveryEngine
 );
-
+const incidentController = new IncidentController(
+  repository,
+  incidentService
+);
 // ============================================================
 // Dependency Injection
 // ============================================================
@@ -61,6 +66,7 @@ app.use((req: any, res, next) => {
   req.repository = repository;
   next();
 });
+app.use('/api/incidents', createIncidentRoutes(incidentController));
 
 // ============================================================
 // Server
