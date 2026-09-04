@@ -68,6 +68,29 @@ export class IncidentController {
       res.status(500).json({ error: error.message });
     }
   }
+    async setCause(req: Request, res: Response) {
+    try {
+      const { cause } = req.body;
+
+      if (!cause) {
+        return res.status(400).json({
+          error: 'cause is required'
+        });
+      }
+
+      await this.repository.updateIncident(req.params.id, {
+        cause
+      });
+
+      res.json({
+        message: `Cause set to ${cause}`
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        error: error.message
+      });
+    }
+  }
 
   async classifyIncident(req: Request, res: Response) {
     try {
