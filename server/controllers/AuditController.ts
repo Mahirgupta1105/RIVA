@@ -1,32 +1,12 @@
 import { Request, Response } from 'express';
-import crypto from 'crypto';
-import { IIncidentRepository, AuditLog } from '../repositories/IIncidentRepository.js';
+import {
+  IIncidentRepository,
+  AuditLog
+} from '../repositories/IIncidentRepository.js';
+import { AuditHashService } from '../services/AuditHashService.js';
 
 export class AuditController {
   constructor(private repository: IIncidentRepository) {}
-
-  /**
-   * Creates a deterministic representation of an object.
-   *
-   * Object keys are sorted recursively so that the same payload
-   * always produces the same JSON string regardless of key order.
-   */
-  private canonicalize(value: any): any {
-    if (Array.isArray(value)) {
-      return value.map((item) => this.canonicalize(item));
-    }
-
-    if (value && typeof value === 'object') {
-      return Object.keys(value)
-        .sort()
-        .reduce((result, key) => {
-          result[key] = this.canonicalize(value[key]);
-          return result;
-        }, {} as Record<string, any>);
-    }
-
-    return value;
-  }
 
   async getLatestAuditEntry(req: Request, res: Response) {
     try {
@@ -74,14 +54,15 @@ export class AuditController {
         });
       }
 
-     const entry = await this.repository.createAuditEntry({
-  previousHash: previousHash ?? null,
-  hash,
-  action,
-  actor,
-  payload,
-  timestamp: new Date()
-});
+      const entry =
+        await this.repository.createAuditEntry({
+          previousHash: previousHash ?? null,
+          hash,
+          action,
+          actor,
+          payload,
+          timestamp: new Date()
+        });
 
       res.status(201).json(entry);
     } catch (error: any) {
@@ -93,20 +74,26 @@ export class AuditController {
 
   async verifyAuditChain(req: Request, res: Response) {
     try {
-      const logs = await this.repository.getAuditChain();
+      const logs =
+        await this.repository.getAuditChain();
 
       /*
-       * Legacy entries were created before the RIVA audit-chain
-       * format existed. They are reported separately and are not
-       * considered part of the cryptographically linked RIVA chain.
+       * Legacy records were created before the RIVA
+       * audit-chain format existed.
+       *
+       * They are reported separately and are not
+       * considered part of the cryptographically
+       * linked RIVA chain.
        */
-      const legacyLogs = logs.filter(
-  (log: AuditLog) => !log.previousHash
-);
+      const legacyLogs =
+        logs.filter(
+          (log: AuditLog) => !log.previousHash
+        );
 
-const rivaLogs = logs.filter(
-  (log: AuditLog) => !!log.previousHash
-);
+      const rivaLogs =
+        logs.filter(
+          (log: AuditLog) => !!log.previousHash
+        );
 
       const details: any[] = [];
 
@@ -127,37 +114,47 @@ const rivaLogs = logs.filter(
       // RIVA chain
       // ----------------------------------------------------------
 
-      for (let index = 0; index < rivaLogs.length; index++) {
+      for (
+        let index = 0;
+        index < rivaLogs.length;
+        index++
+      ) {
         const log = rivaLogs[index];
 
-        const canonicalPayload =
-          this.canonicalize(log.payload);
+        /*
+         * Use the centralized AuditHashService.
+         *
+         * This must be the same hashing implementation
+         * used by IncidentService when creating RIVA
+         * audit records.
+         */
+        const timestamp =
+          new Date(log.timestamp).toISOString();
 
-        const dataToHash =
-          `${log.previousHash}|` +
-          `${log.action}|` +
-          `${JSON.stringify(canonicalPayload)}|` +
-          `${new Date(log.timestamp).toISOString()}`;
-
-        const calculatedHash = crypto
-          .createHash('sha256')
-          .update(dataToHash)
-          .digest('hex');
+        const calculatedHash =
+          AuditHashService.generateHash(
+            log.previousHash!,
+            log.action,
+            log.payload,
+            timestamp
+          );
 
         const hashValid =
           calculatedHash === log.hash;
 
         /*
          * The first RIVA record links to the most recent
-         * audit record that existed when the RIVA chain began.
+         * legacy audit record.
          *
-         * Subsequent RIVA records link to the previous RIVA
-         * record's hash.
+         * Every subsequent RIVA record links to the
+         * previous RIVA record.
          */
         const expectedPreviousHash =
           index === 0
             ? legacyLogs.length > 0
-              ? legacyLogs[legacyLogs.length - 1].hash
+              ? legacyLogs[
+                  legacyLogs.length - 1
+                ].hash
               : '0'.repeat(64)
             : rivaLogs[index - 1].hash;
 
@@ -166,16 +163,23 @@ const rivaLogs = logs.filter(
 
         details.push({
           id: log.id,
-          isValid: hashValid && chainValid,
+          isValid:
+            hashValid && chainValid,
           status: 'RIVA_CHAIN',
           hashValid,
           chainValid
         });
       }
 
-      const rivaDetails = details.filter(
-        (entry) => entry.status === 'RIVA_CHAIN'
-      );
+      // ----------------------------------------------------------
+      // RIVA chain summary
+      // ----------------------------------------------------------
+
+      const rivaDetails =
+        details.filter(
+          (entry) =>
+            entry.status === 'RIVA_CHAIN'
+        );
 
       const validRiva =
         rivaDetails.filter(
@@ -188,10 +192,12 @@ const rivaLogs = logs.filter(
         ).length;
 
       /*
-       * allValid refers to the RIVA cryptographic chain.
+       * allValid refers only to the RIVA
+       * cryptographic chain.
        *
-       * Legacy records are intentionally excluded because
-       * they were created before previousHash existed.
+       * Legacy records are intentionally excluded
+       * because they were created before previousHash
+       * existed.
        */
       const allValid =
         rivaDetails.length > 0 &&
