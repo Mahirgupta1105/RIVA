@@ -74,13 +74,16 @@ export interface IIncidentRepository {
   getRecentFailureCountForCustomer(customerId: string, windowStart: Date): Promise<number>;
 
   // Audit Log
+    // Audit Log
   createAuditEntry(data: {
     previousHash: string | null;
     hash: string;
     action: string;
     actor: string;
-    payload: any
+    payload: any;
+    timestamp: Date;
   }): Promise<AuditLog>;
+
   getLatestAuditEntry(): Promise<AuditLog | null>;
   getAuditChain(): Promise<AuditLog[]>;
 }
