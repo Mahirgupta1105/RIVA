@@ -17,10 +17,12 @@
     "@neon/config": "^1.2.0",
     "@neon/env": "^1.2.0",
     "@prisma/client": "^5.22.0",
+    "body-parser": "^1.20.6",
     "dotenv": "^16.4.5",
-    "express": "^4.21.1",
+    "express": "^4.22.2",
     "lucide-react": "^0.454.0",
     "motion": "^11.11.17",
+    "qs": "^6.16.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.18.3",
@@ -47,5 +49,8 @@
   "allowScripts": {
     "@prisma/client@5.22.0": true,
     "prisma@5.22.0": true
+  },
+  "overrides": {
+    "qs": "$qs"
   }
 }
