@@ -7,6 +7,78 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Customer {
+  id            String        @id @default(uuid())
+  name          String
+  email         String        @unique
+  ltvTier       LtvTier       @default(STARTER)
+  lifetimeValue Float         @default(0.0)
+  incidents     Incident[]
+  transactions  Transaction[]
+}
+
+model Incident {
+  id                   String           @id @default(uuid())
+  customerId           String
+  status               IncidentStatus   @default(DETECTED)
+  cause                String?
+  bank                 String?
+  originalMethod       PaymentMethod?
+  classificationSource String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  amount               Float            @default(0.0)
+  errorCode            String?
+  errorMessage         String?
+  gateway              String?
+  orderId              String?
+  recoverability       Float            @default(0.0)
+  retryCount           Int              @default(0)
+  severity             Severity         @default(MEDIUM)
+  transactionId        String?
+  customer             Customer         @relation(fields: [customerId], references: [id])
+  actions              RecoveryAction[]
+}
+
+model RecoveryAction {
+  id            String               @id @default(uuid())
+  incidentId    String
+  rail          RecoveryRail
+  result        RecoveryActionResult
+  details       String?
+  attemptNumber Int
+  timestamp     DateTime             @default(now())
+  duration      Int?
+  incident      Incident             @relation(fields: [incidentId], references: [id])
+
+  @@unique([incidentId, attemptNumber])
+}
+
+model Transaction {
+  id         String            @id @default(uuid())
+  customerId String
+  amount     Float
+  method     PaymentMethod
+  bank       String?
+  gateway    String?
+  status     TransactionStatus
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  customer   Customer          @relation(fields: [customerId], references: [id])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  previousHash String?
+  hash         String   @unique
+  action       String
+  payload      Json
+  timestamp    DateTime @default(now())
+  actor        String   @default("SYSTEM")
+
+  @@index([previousHash])
+}
+
 enum LtvTier {
   STARTER
   PRO
@@ -44,48 +116,16 @@ enum RecoveryActionResult {
   PENDING_REVIEW
 }
 
-model Customer {
-  id        String     @id @default(uuid())
-  name      String
-  email     String     @unique
-  ltvTier   LtvTier   @default(STARTER)
-  incidents Incident[]
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
 
-model Incident {
-  id                  String           @id @default(uuid())
-  customerId          String
-  customer            Customer         @relation(fields: [customerId], references: [id])
-  status              IncidentStatus   @default(DETECTED)
-  cause               String?          // Failure category
-  bank                String?          // Bank identifier (e.g. "HDFC")
-  originalMethod      PaymentMethod?   // The original payment method that failed
-  classificationSource String?          // "AI" or "HEURISTIC"
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  actions             RecoveryAction[]
-}
-
-model RecoveryAction {
-  id             String               @id @default(uuid())
-  incidentId     String
-  incident       Incident             @relation(fields: [incidentId], references: [id])
-  rail           RecoveryRail
-  result         RecoveryActionResult
-  details        String?              // Captures raw gateway errors or success messages
-  attemptNumber  Int
-  timestamp      DateTime             @default(now())
-
-  @@unique([incidentId, attemptNumber])
-}
-
-model AuditLog {
-  id           String   @id @default(uuid())
-  previousHash String?
-  hash         String   @unique
-  action       String
-  payload      Json
-  timestamp    DateTime @default(now())
-
-  @@index([previousHash])
+enum TransactionStatus {
+  SUCCESS
+  FAILED
+  PENDING
+  RECOVERED
 }

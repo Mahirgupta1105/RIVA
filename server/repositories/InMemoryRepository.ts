@@ -3,7 +3,8 @@ import {
   IncidentStatus,
   RecoveryRail,
   RecoveryActionResult,
-  PaymentMethod
+  PaymentMethod,
+  TransactionStatus
 } from './IIncidentRepository.js';
 
 import type {
@@ -11,7 +12,8 @@ import type {
   Customer,
   Incident,
   RecoveryAction,
-  AuditLog
+  AuditLog,
+  Transaction
 } from './IIncidentRepository.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,16 +22,22 @@ export class InMemoryRepository implements IIncidentRepository {
   private incidents: Map<string, Incident> = new Map();
   private actions: RecoveryAction[] = [];
   private auditLog: AuditLog[] = [];
+  private transactions: Transaction[] = [];
 
   async getCustomerById(id: string): Promise<Customer | null> {
     return this.customers.get(id) || null;
   }
 
-  async createCustomer(data: { name: string; email: string; ltvTier: LtvTier }): Promise<Customer> {
+  async listCustomers(): Promise<Customer[]> {
+    return Array.from(this.customers.values());
+  }
+
+  async createCustomer(data: { name: string; email: string; ltvTier: LtvTier; lifetimeValue: number }): Promise<Customer> {
     const customer: Customer = {
       id: uuidv4(),
       ...data,
       incidents: [],
+      transactions: [],
     };
     this.customers.set(customer.id, customer);
     return customer;
@@ -39,7 +47,17 @@ export class InMemoryRepository implements IIncidentRepository {
     return this.incidents.get(id) || null;
   }
 
-  async createIncident(data: { customerId: string }): Promise<Incident> {
+  async createIncident(data: {
+    customerId: string;
+    amount: number;
+    orderId?: string;
+    transactionId?: string;
+    gateway?: string;
+    errorCode?: string;
+    errorMessage?: string;
+    severity?: any;
+    recoverability?: number
+  }): Promise<Incident> {
     const incident: Incident = {
       id: uuidv4(),
       ...data,
@@ -48,6 +66,9 @@ export class InMemoryRepository implements IIncidentRepository {
       bank: undefined,
       originalMethod: undefined,
       classificationSource: undefined,
+      severity: data.severity || 'MEDIUM',
+      recoverability: data.recoverability ?? 0,
+      retryCount: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
       actions: [],
@@ -84,7 +105,6 @@ export class InMemoryRepository implements IIncidentRepository {
       if (filters.startTime && i.createdAt < filters.startTime) return false;
       if (filters.endTime && i.createdAt > filters.endTime) return false;
 
-      // Recovery rail filter is a bit different as it's based on associated actions
       if (filters.recoveryRail) {
         const hasRail = i.actions?.some(a => a.rail === filters.recoveryRail);
         if (!hasRail) return false;
@@ -99,9 +119,9 @@ export class InMemoryRepository implements IIncidentRepository {
     rail: RecoveryRail;
     result: RecoveryActionResult;
     details?: string;
-    attemptNumber: number
+    attemptNumber: number;
+    duration?: number;
   }): Promise<RecoveryAction> {
-    // Idempotency check
     const exists = await this.getActionByIncidentAndAttempt(data.incidentId, data.attemptNumber);
     if (exists) throw new Error(`Duplicate recovery attempt detected for incident ${data.incidentId} attempt ${data.attemptNumber}`);
 
@@ -123,6 +143,29 @@ export class InMemoryRepository implements IIncidentRepository {
     return this.actions.find(a => a.incidentId === incidentId && a.attemptNumber === attemptNumber) || null;
   }
 
+  async createTransaction(data: { customerId: string; amount: number; method: PaymentMethod; bank?: string; gateway?: string; status: TransactionStatus }): Promise<Transaction> {
+    const transaction: Transaction = {
+      id: uuidv4(),
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.transactions.push(transaction);
+    return transaction;
+  }
+
+  async listTransactions(filters: { status?: TransactionStatus; customerId?: string }): Promise<Transaction[]> {
+    return this.transactions.filter(t => {
+      if (filters.status && t.status !== filters.status) return false;
+      if (filters.customerId && t.customerId !== filters.customerId) return false;
+      return true;
+    }).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getTransactionById(id: string): Promise<Transaction | null> {
+    return this.transactions.find(t => t.id === id) || null;
+  }
+
   async getRecentFailureCountForCustomer(customerId: string, windowStart: Date): Promise<number> {
     return Array.from(this.incidents.values()).filter(i =>
       i.customerId === customerId &&
@@ -135,6 +178,7 @@ export class InMemoryRepository implements IIncidentRepository {
     previousHash: string | null;
     hash: string;
     action: string;
+    actor: string;
     payload: any
   }): Promise<AuditLog> {
     const entry: AuditLog = {
