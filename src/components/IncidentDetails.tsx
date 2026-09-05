@@ -7,7 +7,10 @@ import {
   Building2,
   Brain,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck,
+  Clock3,
+  Sparkles
 } from 'lucide-react';
 
 interface RecoveryAction {
@@ -56,15 +59,17 @@ export default function IncidentDetails({
 }: IncidentDetailsProps) {
   if (!incident) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-        <AlertCircle size={40} className="mb-4 opacity-20" />
+      <div className="h-full min-h-[420px] flex flex-col items-center justify-center text-slate-400 p-8 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/60">
+        <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-5">
+          <AlertCircle size={32} className="opacity-30" />
+        </div>
 
-        <p className="font-medium">
-          Select an incident to view details
+        <p className="font-semibold text-slate-600">
+          Select an incident
         </p>
 
-        <p className="text-xs">
-          Trigger classification or recovery actions from here
+        <p className="text-xs mt-1 max-w-[220px] leading-5">
+          Choose an incident from the operations table to inspect its recovery intelligence.
         </p>
       </div>
     );
@@ -85,241 +90,346 @@ export default function IncidentDetails({
   const hasAgent2Decision =
     Boolean(agent2Decision);
 
+  const confidence =
+    typeof agent2Decision?.confidence === 'number'
+      ? Math.round(agent2Decision.confidence * 100)
+      : null;
+
+  const severity =
+    incident.severity?.toUpperCase();
+
+  const severityClasses =
+    severity === 'CRITICAL'
+      ? 'bg-red-100 text-red-700 border-red-200'
+      : severity === 'HIGH'
+      ? 'bg-orange-100 text-orange-700 border-orange-200'
+      : severity === 'MEDIUM'
+      ? 'bg-amber-100 text-amber-700 border-amber-200'
+      : 'bg-slate-100 text-slate-600 border-slate-200';
+
+  const statusClasses =
+    incident.status === 'RECOVERED'
+      ? 'bg-green-100 text-green-700 border-green-200'
+      : incident.status === 'ESCALATED'
+      ? 'bg-amber-100 text-amber-700 border-amber-200'
+      : incident.status === 'RECOVERY_IN_PROGRESS'
+      ? 'bg-blue-100 text-blue-700 border-blue-200'
+      : incident.status === 'CLASSIFIED'
+      ? 'bg-indigo-100 text-indigo-700 border-indigo-200'
+      : 'bg-red-100 text-red-700 border-red-200';
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
 
       {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-bold text-slate-800">
-            Incident Details
-          </h2>
+      <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
 
-          <p className="text-[10px] text-slate-400 font-mono mt-1">
-            {incident.id}
-          </p>
-        </div>
+        <div className="flex items-start justify-between gap-3">
 
-        <span
-          className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-            incident.status === 'RECOVERED'
-              ? 'bg-green-100 text-green-700'
-              : incident.status === 'ESCALATED'
-              ? 'bg-amber-100 text-amber-700'
-              : incident.status === 'RECOVERY_IN_PROGRESS'
-              ? 'bg-blue-100 text-blue-700'
-              : incident.status === 'CLASSIFIED'
-              ? 'bg-indigo-100 text-indigo-700'
-              : 'bg-red-100 text-red-700'
-          }`}
-        >
-          {incident.status}
-        </span>
-      </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                <AlertCircle size={16} />
+              </div>
 
-      <div className="p-6 space-y-6 overflow-y-auto">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">
+                  Incident Details
+                </h2>
 
-        {/* Transaction Information */}
-        <div className="space-y-3">
-
-          <div className="flex items-center gap-2">
-            <CreditCard
-              size={15}
-              className="text-blue-600"
-            />
-
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Transaction
-            </h3>
+                <p className="text-[9px] text-slate-400 font-mono truncate max-w-[180px]">
+                  {incident.id}
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col items-end gap-1.5">
 
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
+            <span
+              className={`px-2.5 py-1 rounded-full border text-[9px] font-bold uppercase tracking-wide ${statusClasses}`}
+            >
+              {incident.status}
+            </span>
+
+            {severity && (
+              <span
+                className={`px-2 py-0.5 rounded-full border text-[8px] font-bold uppercase ${severityClasses}`}
+              >
+                {severity} RISK
+              </span>
+            )}
+
+          </div>
+
+        </div>
+
+        {/* Quick metrics */}
+        <div className="grid grid-cols-3 gap-2 mt-4">
+
+          <div className="rounded-lg bg-white border border-slate-100 p-2.5">
+            <div className="text-[8px] uppercase font-bold tracking-wide text-slate-400">
+              Amount
+            </div>
+
+            <div className="text-sm font-bold text-slate-900 mt-0.5">
+              {typeof incident.amount === 'number'
+                ? `₹${incident.amount.toLocaleString('en-IN')}`
+                : '—'}
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-white border border-slate-100 p-2.5">
+            <div className="text-[8px] uppercase font-bold tracking-wide text-slate-400">
+              Gateway
+            </div>
+
+            <div className="text-xs font-bold text-slate-700 mt-1 truncate">
+              {incident.gateway || '—'}
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-white border border-slate-100 p-2.5">
+            <div className="text-[8px] uppercase font-bold tracking-wide text-slate-400">
+              Attempts
+            </div>
+
+            <div className="text-sm font-bold text-slate-900 mt-0.5">
+              {actions.length}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div className="p-5 space-y-6 overflow-y-auto">
+
+        {/* Transaction */}
+        <section className="space-y-3">
+
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <CreditCard size={14} />
+            </div>
+
+            <div>
+              <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Transaction
+              </h3>
+
+              <p className="text-[9px] text-slate-400">
+                Payment context
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="text-[8px] text-slate-400 uppercase font-bold mb-1">
                 Order ID
               </div>
 
-              <div className="text-xs font-semibold text-slate-700 break-all">
+              <div className="text-[10px] font-semibold text-slate-700 break-all">
                 {incident.orderId || '—'}
               </div>
             </div>
 
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="text-[8px] text-slate-400 uppercase font-bold mb-1">
                 Transaction ID
               </div>
 
-              <div className="text-xs font-semibold text-slate-700 break-all">
+              <div className="text-[10px] font-semibold text-slate-700 break-all">
                 {incident.transactionId || '—'}
               </div>
             </div>
 
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
 
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
-                Gateway
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="text-[8px] text-slate-400 uppercase font-bold mb-1">
+                Bank
               </div>
 
-              <div className="text-sm font-semibold text-slate-700">
-                {incident.gateway || '—'}
+              <div className="text-xs font-semibold text-slate-700">
+                {incident.bank || '—'}
               </div>
             </div>
 
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
-                Amount
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="text-[8px] text-slate-400 uppercase font-bold mb-1">
+                Classification
               </div>
 
-              <div className="text-sm font-bold text-slate-900">
-                {typeof incident.amount === 'number'
-                  ? `₹${incident.amount.toLocaleString('en-IN')}`
-                  : '—'}
+              <div className="text-xs font-semibold text-slate-700">
+                {incident.classificationSource || 'Pending'}
               </div>
             </div>
 
           </div>
 
-        </div>
+        </section>
 
-        {/* Failure Information */}
-        <div className="space-y-3">
+        {/* Failure Analysis */}
+        <section className="space-y-3">
 
           <div className="flex items-center gap-2">
-            <AlertTriangle
-              size={15}
-              className="text-amber-600"
-            />
+            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <AlertTriangle size={14} />
+            </div>
 
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Failure Analysis
-            </h3>
+            <div>
+              <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Failure Analysis
+              </h3>
+
+              <p className="text-[9px] text-slate-400">
+                Root-cause information
+              </p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
 
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="text-[8px] text-slate-400 uppercase font-bold mb-1">
                 Cause
               </div>
 
-              <div className="text-sm font-semibold text-slate-700">
+              <div className="text-xs font-semibold text-slate-700">
                 {incident.cause || 'Unclassified'}
               </div>
             </div>
 
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="text-[8px] text-slate-400 uppercase font-bold mb-1">
                 Error Code
               </div>
 
-              <div className="text-sm font-semibold text-slate-700">
+              <div className="text-xs font-semibold text-slate-700">
                 {incident.errorCode || '—'}
               </div>
             </div>
 
           </div>
 
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+          <div className="p-3.5 rounded-xl bg-red-50/60 border border-red-100">
 
-            <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
-              Error Message
+            <div className="flex items-center gap-2 mb-1.5">
+              <AlertCircle
+                size={12}
+                className="text-red-500"
+              />
+
+              <div className="text-[8px] text-red-500 uppercase font-bold tracking-wide">
+                Failure Message
+              </div>
             </div>
 
-            <div className="text-xs text-slate-600">
+            <div className="text-xs leading-5 text-slate-700">
               {incident.errorMessage ||
                 'No error message available.'}
             </div>
 
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+        </section>
 
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
-                Bank
-              </div>
-
-              <div className="text-sm font-semibold text-slate-700">
-                {incident.bank || '—'}
-              </div>
-            </div>
-
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
-                Classification
-              </div>
-
-              <div className="text-sm font-semibold text-slate-700">
-                {incident.classificationSource ||
-                  'Pending'}
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* RIVA Agent 2 */}
+        {/* Agent 2 */}
         {hasAgent2Decision &&
           agent2Decision && (
-            <div className="space-y-3">
+            <section className="space-y-3">
 
-              <div className="flex items-center gap-2">
-                <Brain
-                  size={15}
-                  className="text-violet-600"
-                />
+              <div className="flex items-center justify-between">
 
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  RIVA Agent 2 · Recovery Intelligence
-                </h3>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center">
+                    <Brain size={14} />
+                  </div>
+
+                  <div>
+                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      RIVA Agent 2
+                    </h3>
+
+                    <p className="text-[9px] text-violet-500 font-medium">
+                      Recovery Intelligence
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-violet-600">
+                  <Sparkles size={11} />
+                  Decision Ready
+                </div>
+
               </div>
 
-              <div className="rounded-xl border border-violet-100 bg-violet-50/40 overflow-hidden">
+              <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50/80 via-white to-indigo-50/50 overflow-hidden shadow-sm">
 
-                {/* Strategy + Confidence */}
-                <div className="grid grid-cols-2 gap-px bg-violet-100">
+                {/* Decision */}
+                <div className="p-4">
 
-                  <div className="bg-white p-4">
+                  <div className="text-[8px] text-violet-500 uppercase font-bold tracking-wider mb-1">
+                    Recommended Recovery Strategy
+                  </div>
 
-                    <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
-                      Recovery Strategy
-                    </div>
+                  <div className="flex items-center justify-between gap-3">
 
-                    <div className="text-sm font-bold text-violet-700">
+                    <div className="text-base font-black text-violet-700 tracking-tight">
                       {agent2Decision.action || '—'}
                     </div>
 
-                  </div>
-
-                  <div className="bg-white p-4">
-
-                    <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
-                      Confidence
-                    </div>
-
-                    <div className="text-sm font-bold text-slate-800">
-                      {typeof agent2Decision.confidence ===
-                      'number'
-                        ? `${Math.round(
-                            agent2Decision.confidence * 100
-                          )}%`
-                        : '—'}
+                    <div className="px-2.5 py-1 rounded-lg bg-violet-100 text-violet-700 text-[9px] font-bold">
+                      AI SELECTED
                     </div>
 
                   </div>
 
                 </div>
 
-                {/* Reasoning */}
-                <div className="p-4 border-t border-violet-100">
+                {/* Confidence */}
+                <div className="px-4 pb-4">
 
-                  <div className="text-[10px] text-slate-400 uppercase font-bold mb-2">
-                    Agent Reasoning
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[9px] uppercase font-bold text-slate-400">
+                      Decision Confidence
+                    </span>
+
+                    <span className="text-xs font-black text-slate-800">
+                      {confidence !== null
+                        ? `${confidence}%`
+                        : '—'}
+                    </span>
+                  </div>
+
+                  <div className="h-2 bg-violet-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-violet-500 transition-all duration-500"
+                      style={{
+                        width: `${confidence ?? 0}%`
+                      }}
+                    />
+                  </div>
+
+                </div>
+
+                {/* Reasoning */}
+                <div className="border-t border-violet-100 p-4">
+
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain
+                      size={12}
+                      className="text-violet-500"
+                    />
+
+                    <div className="text-[8px] text-slate-400 uppercase font-bold tracking-wide">
+                      Agent Reasoning
+                    </div>
                   </div>
 
                   <p className="text-xs leading-5 text-slate-600">
@@ -329,39 +439,34 @@ export default function IncidentDetails({
 
                 </div>
 
-                {/* Recovery Metadata */}
-                <div className="grid grid-cols-3 gap-px bg-violet-100">
+                {/* Decision metadata */}
+                <div className="grid grid-cols-3 border-t border-violet-100">
 
-                  <div className="bg-white p-3">
-
-                    <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
+                  <div className="p-3 bg-white/80">
+                    <div className="text-[8px] uppercase font-bold text-slate-400 mb-1">
                       Attempt
                     </div>
 
                     <div className="text-xs font-bold text-slate-700">
                       #{latestAction?.attemptNumber ?? 1}
                     </div>
-
                   </div>
 
-                  <div className="bg-white p-3">
-
-                    <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
+                  <div className="p-3 bg-white/80 border-x border-violet-100">
+                    <div className="text-[8px] uppercase font-bold text-slate-400 mb-1">
                       Delay
                     </div>
 
-                    <div className="text-xs font-bold text-slate-700">
-                      {typeof agent2Decision.delayMs ===
-                      'number'
+                    <div className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                      <Clock3 size={10} />
+                      {typeof agent2Decision.delayMs === 'number'
                         ? `${agent2Decision.delayMs}ms`
                         : '—'}
                     </div>
-
                   </div>
 
-                  <div className="bg-white p-3">
-
-                    <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">
+                  <div className="p-3 bg-white/80">
+                    <div className="text-[8px] uppercase font-bold text-slate-400 mb-1">
                       Result
                     </div>
 
@@ -369,31 +474,40 @@ export default function IncidentDetails({
                       className={`text-xs font-bold ${
                         latestAction?.result === 'SUCCESS'
                           ? 'text-green-600'
-                          : 'text-red-600'
+                          : latestAction?.result
+                          ? 'text-red-600'
+                          : 'text-slate-500'
                       }`}
                     >
-                      {latestAction?.result || '—'}
+                      {latestAction?.result || 'PENDING'}
                     </div>
-
                   </div>
 
                 </div>
 
-                {/* Retention Path */}
+                {/* Retention */}
                 {agent2Decision.isRetentionPath && (
-                  <div className="p-3 border-t border-violet-100 bg-amber-50">
+                  <div className="p-3.5 border-t border-amber-200 bg-amber-50">
 
-                    <div className="text-[10px] uppercase font-bold text-amber-700">
-                      Retention Path Activated
-                    </div>
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck
+                        size={14}
+                        className="text-amber-600"
+                      />
 
-                    <div className="text-xs text-amber-700 mt-1">
-                      {typeof agent2Decision.discount ===
-                      'number'
-                        ? `${Math.round(
-                            agent2Decision.discount * 100
-                          )}% recovery incentive applied`
-                        : 'Customer retention strategy activated'}
+                      <div>
+                        <div className="text-[9px] uppercase font-bold text-amber-700">
+                          Retention Path Activated
+                        </div>
+
+                        <div className="text-[10px] text-amber-700 mt-0.5">
+                          {typeof agent2Decision.discount === 'number'
+                            ? `${Math.round(
+                                agent2Decision.discount * 100
+                              )}% recovery incentive applied`
+                            : 'Customer retention strategy activated'}
+                        </div>
+                      </div>
                     </div>
 
                   </div>
@@ -401,109 +515,158 @@ export default function IncidentDetails({
 
               </div>
 
-            </div>
+            </section>
           )}
 
-        {/* Recovery Actions */}
-        <div className="space-y-3">
+        {/* Recovery Timeline */}
+        <section className="space-y-3">
 
-          <div className="flex items-center justify-between text-sm font-medium text-slate-700">
+          <div className="flex items-center justify-between">
 
             <div className="flex items-center gap-2">
-              <Building2
-                size={15}
-                className="text-green-600"
-              />
+              <div className="w-7 h-7 rounded-lg bg-green-50 text-green-600 flex items-center justify-center">
+                <Building2 size={14} />
+              </div>
 
-              <span>Recovery Actions</span>
+              <div>
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Recovery Actions
+                </h3>
+
+                <p className="text-[9px] text-slate-400">
+                  Execution history
+                </p>
+              </div>
             </div>
 
-            <span className="text-xs text-slate-400">
-              {actions.length} attempts
+            <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-500 text-[8px] font-bold">
+              {actions.length} {actions.length === 1 ? 'ATTEMPT' : 'ATTEMPTS'}
             </span>
 
           </div>
 
-          <div className="space-y-2">
+          {actions.length === 0 ? (
+            <div className="p-4 text-xs text-slate-400 italic text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+              No recovery actions taken yet.
+            </div>
+          ) : (
+            <div className="relative pl-5">
 
-            {actions.length === 0 ? (
-              <div className="text-xs text-slate-400 italic p-3 text-center border border-dashed border-slate-200 rounded-lg">
-                No recovery actions taken yet.
+              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
+
+              <div className="space-y-3">
+
+                {actions.map((action, i) => {
+                  const success =
+                    action.result === 'SUCCESS';
+
+                  return (
+                    <div
+                      key={i}
+                      className="relative"
+                    >
+
+                      <div
+                        className={`absolute -left-5 top-3 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${
+                          success
+                            ? 'bg-green-500'
+                            : 'bg-red-500'
+                        }`}
+                      />
+
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-colors">
+
+                        <div className="flex items-start justify-between gap-3">
+
+                          <div className="min-w-0">
+
+                            <div className="flex items-center gap-2">
+
+                              <span className="text-xs font-bold text-slate-700">
+                                {action.rail ||
+                                  'Unknown recovery rail'}
+                              </span>
+
+                              <span
+                                className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                                  success
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-red-100 text-red-700'
+                                }`}
+                              >
+                                {action.result || 'PENDING'}
+                              </span>
+
+                            </div>
+
+                            <p className="text-[10px] leading-4 text-slate-500 mt-1.5">
+                              {action.details ||
+                                'No action details available.'}
+                            </p>
+
+                          </div>
+
+                          <div className="shrink-0 text-[9px] text-slate-400 font-mono">
+                            #{action.attemptNumber ?? i + 1}
+                          </div>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+                  );
+                })}
+
               </div>
-            ) : (
-              actions.map((action, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs"
-                >
 
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      action.result === 'SUCCESS'
-                        ? 'bg-green-500'
-                        : 'bg-red-500'
-                    }`}
-                  />
+            </div>
+          )}
 
-                  <div className="flex-1">
+        </section>
 
-                    <div className="font-bold text-slate-700">
-                      {action.rail ||
-                        'Unknown recovery rail'}
-                    </div>
-
-                    <div className="text-slate-500">
-                      {action.details ||
-                        'No action details available.'}
-                    </div>
-
-                  </div>
-
-                  <div className="text-slate-400 font-mono">
-                    #{action.attemptNumber ?? i + 1}
-                  </div>
-
-                </div>
-              ))
-            )}
-
-          </div>
-        </div>
-
-        {/* Action Controls */}
-        <div className="pt-6 border-t border-slate-100 space-y-3">
+        {/* Controls */}
+        <section className="pt-5 border-t border-slate-100">
 
           {!isClassified ? (
             <button
               onClick={() => onClassify(incident.id)}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-200"
+              className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-200/60"
             >
               <Zap size={16} />
               Run AI Classification
+              <ArrowRight size={14} />
             </button>
           ) : (
             <button
               onClick={() => onRecover(incident.id)}
               disabled={incident.status === 'RECOVERED'}
-              className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-md ${
+              className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg ${
                 incident.status === 'RECOVERED'
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700 text-white shadow-green-200'
+                  ? 'bg-green-50 text-green-600 border border-green-200 shadow-none cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700 active:bg-green-800 text-white shadow-green-200/60'
               }`}
             >
               {incident.status === 'RECOVERED' ? (
-                <CheckCircle2 size={16} />
+                <>
+                  <CheckCircle2 size={17} />
+                  Successfully Recovered
+                </>
               ) : (
-                <ArrowRight size={16} />
+                <>
+                  <ArrowRight size={16} />
+                  Trigger Next Recovery
+                </>
               )}
-
-              {incident.status === 'RECOVERED'
-                ? 'Successfully Recovered'
-                : 'Trigger Next Recovery'}
             </button>
           )}
 
-        </div>
+          <div className="flex items-center justify-center gap-1.5 mt-3 text-[8px] uppercase tracking-wider font-bold text-slate-400">
+            <ShieldCheck size={10} />
+            RIVA controlled recovery workflow
+          </div>
+
+        </section>
 
       </div>
     </div>
