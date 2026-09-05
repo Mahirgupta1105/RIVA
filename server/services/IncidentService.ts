@@ -1,14 +1,25 @@
 import { IIncidentRepository } from '../repositories/IIncidentRepository.js';
-import { ForensicEngine, ForensicResult } from './ForensicEngine.js';
-import { RecoveryEngine, RecoveryDecision } from './RecoveryEngine.js';
-import { IncidentStatus, RecoveryActionResult } from '../types.js';
+import {
+  ForensicEngine,
+  ForensicResult
+} from './ForensicEngine.js';
+import {
+  RecoveryEngine,
+  RecoveryDecision
+} from './RecoveryEngine.js';
+import {
+  IncidentStatus,
+  RecoveryActionResult
+} from '../types.js';
 import { AuditHashService } from './AuditHashService.js';
+import { WhatsAppSimulationService } from './WhatsAppSimulationService.js';
 
 export class IncidentService {
   constructor(
     private repository: IIncidentRepository,
     private forensicEngine: ForensicEngine,
-    private recoveryEngine: RecoveryEngine
+    private recoveryEngine: RecoveryEngine,
+    private whatsappService: WhatsAppSimulationService
   ) {}
 
   /**
@@ -17,15 +28,13 @@ export class IncidentService {
   private async logAction(
     action: string,
     payload: any
-  ) {
+  ): Promise<void> {
     const latest =
       await this.repository.getLatestAuditEntry();
 
     const prevHash =
       latest?.hash || '0'.repeat(64);
 
-    // Generate the timestamp once.
-    // The exact same timestamp is persisted and hashed.
     const timestamp =
       new Date().toISOString();
 
@@ -48,7 +57,8 @@ export class IncidentService {
   }
 
   /**
-   * Transitions an incident from DETECTED to CLASSIFIED.
+   * RIVA Agent 1:
+   * Determines what went wrong with the payment.
    */
   async classifyIncident(
     incidentId: string,
@@ -79,7 +89,7 @@ export class IncidentService {
         );
       }
 
-      const forensicResult: ForensicResult =
+      const forensicResult =
         await this.forensicEngine.classify(
           incidentId,
           rawErrorMessage
@@ -91,7 +101,7 @@ export class IncidentService {
           cause: forensicResult.category,
           classificationSource:
             forensicResult.source,
-          status: IncidentStatus.CLASSIFIED,
+          status: IncidentStatus.CLASSIFIED
         }
       );
 
@@ -99,28 +109,31 @@ export class IncidentService {
         'CLASSIFY',
         {
           incidentId,
-          result: forensicResult,
+          result: forensicResult
         }
       );
 
       return {
         success: true,
-        result: forensicResult,
+        result: forensicResult
       };
     } catch (error: any) {
       console.error(
         `Failed to classify incident ${incidentId}:`,
-        error.message
+        error
       );
 
       return {
-        success: false,
+        success: false
       };
     }
   }
 
   /**
    * Executes the next step in the recovery cascade.
+   *
+   * RIVA Agent 2:
+   * Determines and executes the next recovery strategy.
    */
   async executeRecoveryStep(
     incidentId: string
@@ -152,20 +165,27 @@ export class IncidentService {
         );
       }
 
-      // 1. Determine the next action
+      /*
+       * RIVA Agent 2
+       *
+       * Determine the next recovery action.
+       */
       const decision =
         await this.recoveryEngine.determineNextAction(
           incident,
           customer
         );
 
+      /*
+       * No decision means:
+       * - maximum retries reached, or
+       * - systemic failure detected.
+       */
       if (!decision) {
-        // No further actions possible
-        // (Max retries or Systemic Pause)
         await this.repository.updateIncident(
           incidentId,
           {
-            status: IncidentStatus.ESCALATED,
+            status: IncidentStatus.ESCALATED
           }
         );
 
@@ -173,18 +193,18 @@ export class IncidentService {
           'ESCALATE',
           {
             incidentId,
-            reason: 'MAX_RETRIES_OR_PAUSE',
+            reason: 'MAX_RETRIES_OR_PAUSE'
           }
         );
 
         return {
-          success: false,
-          decision: undefined,
+          success: false
         };
       }
 
-      // 2. Idempotency Check:
-      // Ensure we aren't duplicating this attempt
+      /*
+       * Idempotency check.
+       */
       const attemptNumber =
         (incident.actions?.length || 0) + 1;
 
@@ -200,24 +220,61 @@ export class IncidentService {
         );
       }
 
-      // 3. Execute Action
-      // In this demo, we simulate the gateway result
-      const result =
-        await this.simulateGatewayCall(
-          decision
-        );
+      /*
+       * Execute Agent 2 decision.
+       *
+       * WHATSAPP_LINK is handled by the
+       * dedicated WhatsApp simulation service.
+       */
+      let result: {
+        status: RecoveryActionResult;
+        details: string;
+      };
 
-      // 4. Persist Action
+      if (
+        decision.action === 'WHATSAPP_LINK'
+      ) {
+        const whatsappResult =
+          await this.whatsappService.simulateRecoveryMessage(
+            incident.customerId,
+            incident.amount,
+            incident.id
+          );
+
+        result = {
+          status:
+            whatsappResult.success
+              ? RecoveryActionResult.SUCCESS
+              : RecoveryActionResult.FAILED,
+
+          details:
+            whatsappResult.success
+              ? `WhatsApp recovery message simulated successfully. ` +
+                `Recovery link: ${whatsappResult.recoveryLink}`
+              : 'WhatsApp recovery simulation failed'
+        };
+      } else {
+        result =
+          await this.simulateGatewayCall(
+            decision
+          );
+      }
+
+      /*
+       * Persist recovery action.
+       */
       const action =
         await this.repository.addRecoveryAction({
           incidentId,
           rail: decision.action,
           result: result.status,
           details: result.details,
-          attemptNumber,
+          attemptNumber
         });
 
-      // 5. Update Incident Status & Systemic Metrics
+      /*
+       * Update incident status and systemic metrics.
+       */
       if (
         result.status ===
         RecoveryActionResult.SUCCESS
@@ -225,8 +282,7 @@ export class IncidentService {
         await this.repository.updateIncident(
           incidentId,
           {
-            status:
-              IncidentStatus.RECOVERED,
+            status: IncidentStatus.RECOVERED
           }
         );
 
@@ -238,7 +294,7 @@ export class IncidentService {
           incidentId,
           {
             status:
-              IncidentStatus.RECOVERY_IN_PROGRESS,
+              IncidentStatus.RECOVERY_IN_PROGRESS
           }
         );
 
@@ -247,37 +303,53 @@ export class IncidentService {
         );
       }
 
+      /*
+       * Record Agent 2 decision and execution
+       * in the tamper-evident audit chain.
+       */
       await this.logAction(
-        'RECOVER_ATTEMPT',
-        {
-          incidentId,
-          action,
-        }
-      );
+  'RECOVER_ATTEMPT',
+  {
+    incidentId,
+    decision: {
+      action: decision.action,
+      confidence: decision.confidence,
+      reasoning: decision.reasoning,
+      isRetentionPath: decision.isRetentionPath,
+      discount: decision.discount,
+      delayMs: decision.delayMs
+    },
+    action: {
+      id: action.id,
+      incidentId: action.incidentId,
+      rail: action.rail,
+      result: action.result,
+      details: action.details,
+      attemptNumber: action.attemptNumber
+    }
+  }
+);
 
       return {
         success: true,
         decision,
-        action,
+        action
       };
     } catch (error: any) {
       console.error(
         `Recovery failed for ${incidentId}:`,
-        error.message
+        error?.message
       );
 
       return {
-        success: false,
+        success: false
       };
     }
   }
 
   /**
-   * Simulates a payment gateway call.
-   *
-   * Simulation:
-   * - 30% success rate
-   * - 70% failure rate
+   * Simulates a payment gateway call
+   * for non-WhatsApp recovery rails.
    */
   private async simulateGatewayCall(
     decision: RecoveryDecision
@@ -285,6 +357,21 @@ export class IncidentService {
     status: RecoveryActionResult;
     details: string;
   }> {
+    console.log(
+      'RIVA Agent 2 executing:',
+      decision.action
+    );
+
+    console.log(
+      'Agent 2 confidence:',
+      decision.confidence
+    );
+
+    console.log(
+      'Agent 2 reasoning:',
+      decision.reasoning
+    );
+
     const isSuccess =
       Math.random() < 0.3;
 
@@ -295,7 +382,7 @@ export class IncidentService {
 
       details: isSuccess
         ? 'Payment successfully processed'
-        : 'Gateway returned failure: Insufficient funds',
+        : 'Gateway returned failure: Insufficient funds'
     };
   }
 }

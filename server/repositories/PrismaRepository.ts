@@ -24,8 +24,19 @@ export class PrismaRepository implements IIncidentRepository {
   }
 
   async getIncidentById(id: string): Promise<Incident | null> {
-    return (await this.prisma.incident.findUnique({ where: { id } })) as unknown as Incident | null;
-  }
+  const incident = await this.prisma.incident.findUnique({
+    where: { id },
+    include: {
+      actions: {
+        orderBy: {
+          attemptNumber: 'asc'
+        }
+      }
+    }
+  });
+
+  return incident as unknown as Incident | null;
+}
 
   async createIncident(data: {
     customerId: string;
@@ -134,14 +145,17 @@ export class PrismaRepository implements IIncidentRepository {
   }
 
   async createAuditEntry(data: {
-    previousHash: string | null;
-    hash: string;
-    action: string;
-    actor: string;
-    payload: any
-  }): Promise<AuditLog> {
-    return (await this.prisma.auditLog.create({ data })) as unknown as AuditLog;
-  }
+  previousHash: string | null;
+  hash: string;
+  action: string;
+  actor: string;
+  payload: any;
+  timestamp: Date;
+}): Promise<AuditLog> {
+  return (await this.prisma.auditLog.create({
+    data
+  })) as unknown as AuditLog;
+}
 
   async getLatestAuditEntry(): Promise<AuditLog | null> {
     return (await this.prisma.auditLog.findFirst({

@@ -13,21 +13,73 @@ export class IncidentController {
       const incidents = await this.repository.listIncidents({});
       res.json(incidents);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({
+        error: error.message
+      });
     }
   }
 
   async getIncident(req: Request, res: Response) {
     try {
-      const incident = await this.repository.getIncidentById(req.params.id);
+      const incident =
+        await this.repository.getIncidentById(req.params.id);
 
       if (!incident) {
-        return res.status(404).json({ error: 'Incident not found' });
+        return res.status(404).json({
+          error: 'Incident not found'
+        });
       }
 
-      res.json(incident);
+      const auditLogs =
+        await this.repository.getAuditChain();
+
+      const recoveryAudit =
+        auditLogs
+          .filter(
+            log =>
+              log.action === 'RECOVER_ATTEMPT' &&
+              log.payload?.incidentId === incident.id
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() -
+              new Date(a.timestamp).getTime()
+          )[0];
+
+      /*
+       * Do not modify the RecoveryAction type.
+       * Instead, expose Agent 2's decision separately.
+       */
+      let agent2Decision = null;
+
+      if (recoveryAudit?.payload?.decision) {
+        const decision =
+          recoveryAudit.payload.decision;
+
+        agent2Decision = {
+          action: decision.action,
+          confidence: decision.confidence,
+          reasoning: decision.reasoning,
+          delayMs: decision.delayMs,
+          isRetentionPath:
+            decision.isRetentionPath,
+          discount: decision.discount
+        };
+      }
+
+      res.json({
+        ...incident,
+        agent2Decision
+      });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error(
+        'Failed to fetch incident:',
+        error
+      );
+
+      res.status(500).json({
+        error: error.message
+      });
     }
   }
 
@@ -51,24 +103,28 @@ export class IncidentController {
         });
       }
 
-      const incident = await this.repository.createIncident({
-        customerId,
-        amount,
-        orderId,
-        transactionId,
-        gateway,
-        errorCode,
-        errorMessage,
-        severity,
-        recoverability
-      });
+      const incident =
+        await this.repository.createIncident({
+          customerId,
+          amount,
+          orderId,
+          transactionId,
+          gateway,
+          errorCode,
+          errorMessage,
+          severity,
+          recoverability
+        });
 
       res.status(201).json(incident);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({
+        error: error.message
+      });
     }
   }
-    async setCause(req: Request, res: Response) {
+
+  async setCause(req: Request, res: Response) {
     try {
       const { cause } = req.body;
 
@@ -78,9 +134,12 @@ export class IncidentController {
         });
       }
 
-      await this.repository.updateIncident(req.params.id, {
-        cause
-      });
+      await this.repository.updateIncident(
+        req.params.id,
+        {
+          cause
+        }
+      );
 
       res.json({
         message: `Cause set to ${cause}`
@@ -102,10 +161,11 @@ export class IncidentController {
         });
       }
 
-      const outcome = await this.incidentService.classifyIncident(
-        req.params.id,
-        rawErrorMessage
-      );
+      const outcome =
+        await this.incidentService.classifyIncident(
+          req.params.id,
+          rawErrorMessage
+        );
 
       if (outcome.success) {
         return res.json({
@@ -118,15 +178,18 @@ export class IncidentController {
         error: 'Classification failed'
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({
+        error: error.message
+      });
     }
   }
 
   async recoverIncident(req: Request, res: Response) {
     try {
-      const outcome = await this.incidentService.executeRecoveryStep(
-        req.params.id
-      );
+      const outcome =
+        await this.incidentService.executeRecoveryStep(
+          req.params.id
+        );
 
       if (outcome.success) {
         return res.json({
@@ -139,7 +202,9 @@ export class IncidentController {
         error: 'Recovery step failed'
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({
+        error: error.message
+      });
     }
   }
 }
